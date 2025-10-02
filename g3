@@ -1,0 +1,53 @@
+    function Write-gProgress {
+        param([int]$Section,[string]$Message,[switch]$Init)
+    
+        if (-not $global:zalgo) { $global:zalgo=@(0x0300..0x0306+0x0315,0x031B,0x032C,0x032D)|%{[char]$_}}
+        if (-not $global:sectionIntensities){$global:sectionIntensities=@{1=0;2=0;3=0;4=0;5=0}}
+        if (-not $global:asciiArt){
+            $global:asciiArt=@(
+                '     _ \  |      __|                      _)  |        ',
+                '    (   |  _ \ \__ \   -_)   _|  |  |   _| |   _|  |  |',
+                '   \___/ _.__/ ____/ \___| \__| \_,_| _|  _| \__| \_, |',
+                '                                                  ___/ '
+            )
+        }
+    
+        if($Init){
+            $global:sectionIntensities=@{1=0;2=0;3=0;4=0;5=0}
+            $global:asciiSections=@{
+                1=$global:asciiArt|%{ $_.Substring(0,15)}
+                2=$global:asciiArt|%{ $_.Substring(15,17)}
+                3=$global:asciiArt|%{ $_.Substring(32,11)}
+                4=$global:asciiArt|%{ $_.Substring(43,7)}
+                5=$global:asciiArt|%{ $_.Substring(50)}
+            }
+        }
+    
+        function Glitch-Char{param([char]$c,[int]$i)if($c -match '\s'){return $c};$cnt=[math]::Min($i,2);$r=$c;for($x=0;$x -lt $cnt;$x++){$r+=$global:zalgo|Get-Random};$r}
+        function Glitch-Section-Slice{param([string[]]$lines,[int]$s,[int]$e,[int]$i)$g=@();foreach($line in $lines){$slice="";if($line.Length -gt $s){$ae=if($e -eq -1 -or $line.Length -lt $e){$line.Length}else{$e};$len=$ae-$s;if($len -gt 0 -and ($s+$len) -le $line.Length){$slice=$line.Substring($s,$len)}elseif($line.Length -gt $s){$slice=$line.Substring($s)}};$g+=($slice.ToCharArray()|%{Glitch-Char $_ $i})-join""};$g}
+        function Rebuild-AsciiArt{$l=@("","","","");for($i=0;$i -lt 4;$i++){$l[$i]=$global:asciiSections[1][$i]+$global:asciiSections[2][$i]+$global:asciiSections[3][$i]+$global:asciiSections[4][$i]+$global:asciiSections[5][$i]};$l}
+    
+        $global:sectionIntensities[$Section]++
+        switch($Section){
+            1{$global:asciiSections[1]=Glitch-Section-Slice $global:asciiArt 0 15 $global:sectionIntensities[1]}
+            2{$global:asciiSections[2]=Glitch-Section-Slice $global:asciiArt 15 32 $global:sectionIntensities[2]}
+            3{$global:asciiSections[3]=Glitch-Section-Slice $global:asciiArt 32 43 $global:sectionIntensities[3]}
+            4{$global:asciiSections[4]=Glitch-Section-Slice $global:asciiArt 43 50 $global:sectionIntensities[4]}
+            5{$global:asciiSections[5]=Glitch-Section-Slice $global:asciiArt 50 -1 $global:sectionIntensities[5]}
+        }
+    
+        $lines=Rebuild-AsciiArt
+        $h=$lines.Count
+        $maxW=($global:asciiArt|%{$_.Length}|Measure-Object -Maximum).Maximum
+        $percent=[math]::Round(($Section/5)*100)
+    
+        $topLeft="`e[H";$hide="`e[?25l";$show="`e[?25h"
+        $frame="$hide$topLeft"
+        for($i=0;$i -lt $h;$i++){
+            $pad=$lines[$i].PadRight($maxW)
+            $frame+="`e[$($i+1);1H`e[2K$pad"
+        }
+        $frame+="`e[$($h+1);1H`e[2K Glitchify: $Message [$percent%]"
+        $frame+=$show
+        Write-Host $frame -NoNewline
+    }
