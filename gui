@@ -1,0 +1,145 @@
+function Initialize-ObSecurity {
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+
+    $rowHeight = 46
+    $totalRows = $CoreVarList.Count
+    $formWidth = 720
+    $labelWidth = 220
+    $inputWidth = 360
+    $checkboxWidth = 80
+    $gap = 10
+
+    # Reserve space for ASCII art at bottom-left
+    # Calculate dynamic position below input fields
+    $formHeight = ($totalRows * $rowHeight) + $asciiArtHeight + 120
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Invoke-ObSecurity - Initial Variable Setup"
+    $form.Size = [System.Drawing.Size]::new($formWidth, $formHeight)
+    $form.StartPosition = "CenterScreen"
+    $form.FormBorderStyle = "FixedDialog"
+    $form.MaximizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
+    $form.ForeColor = [System.Drawing.Color]::White
+
+    $fieldInputs = @{}
+    $yPos = 20
+
+    # Input fields
+    foreach ($var in $CoreVarList) {
+        $reqMark = if ($var.Required) { "*" } else { "" }
+
+        $label = New-Object System.Windows.Forms.Label
+        $label.Text = "$reqMark$($var.Name):"
+        $label.Location = [System.Drawing.Point]::new(10, $yPos)
+        $label.Size = [System.Drawing.Size]::new($labelWidth, 20)
+        $label.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+        $label.ForeColor = "White"
+        $form.Controls.Add($label)
+
+        $textbox = New-Object System.Windows.Forms.TextBox
+        $textbox.Location = [System.Drawing.Point]::new(10 + $labelWidth + $gap, $yPos - 2)
+        $textbox.Size = [System.Drawing.Size]::new($inputWidth, 22)
+        $textbox.BackColor = "Black"
+        $textbox.ForeColor = "White"
+        if ($var.Name -eq "DecayDelay") { $textbox.Text = "60" }
+        $form.Controls.Add($textbox)
+
+        $checkbox = New-Object System.Windows.Forms.CheckBox
+        $checkbox.Text = "Sensitive"
+        $checkbox.Checked = [bool]::Parse($var.Sensitive)
+        $checkbox.Location = [System.Drawing.Point]::new(10 + $labelWidth + $inputWidth + ($gap * 2), $yPos - 1)
+        $checkbox.Size = [System.Drawing.Size]::new($checkboxWidth, 20)
+        $checkbox.ForeColor = "White"
+        $form.Controls.Add($checkbox)
+
+        $descLabel = New-Object System.Windows.Forms.Label
+        $descLabel.Text = $var.Description.Trim()
+        $descLabel.Location = [System.Drawing.Point]::new(10, $yPos + 22)
+        $descLabel.Size = [System.Drawing.Size]::new($formWidth - 40, 16)
+        $descLabel.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Italic)
+        $descLabel.ForeColor = "Silver"
+        $form.Controls.Add($descLabel)
+
+        $fieldInputs[$var.Name] = @{
+            TextBox  = $textbox
+            CheckBox = $checkbox
+            Required = $var.Required
+        }
+
+        $yPos += $rowHeight
+    }
+    
+    $asciiArtLabel = New-Object System.Windows.Forms.Label
+    $asciiArtLabel.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $asciiArtLabel.ForeColor = "Silver"
+    $asciiArtLabel.Location = [System.Drawing.Point]::new(55, $yPos + 95)
+    $asciiArtLabel.AutoSize = $true
+    $asciiArtLabel.Text = "Ȋ̸͓͈͂̚n̵̩̰̆͒̈́v̵͚̣̗̇ò̸̳ǩ̵̻͎͖̀ě̵̦̭̂-"
+    $asciiArtLabel.UseCompatibleTextRendering = $false
+    $form.Controls.Add($asciiArtLabel)
+
+    $asciiBlock = $asciiArt -join "`r`n"
+    $asciiArtLabel = New-Object System.Windows.Forms.Label
+    $asciiArtLabel.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $asciiArtLabel.ForeColor = "Silver"
+    $asciiArtLabel.Location = [System.Drawing.Point]::new(90, $yPos + 80)
+    $asciiArtLabel.AutoSize = $true
+    $asciiArtLabel.Text = $asciiBlock
+    $asciiArtLabel.UseCompatibleTextRendering = $false
+    $form.Controls.Add($asciiArtLabel)
+
+    # OK/Cancel buttons - bottom-right
+    $okButton = New-Object System.Windows.Forms.Button
+    $okButton.Text = "OK"
+    $okButton.Size = [System.Drawing.Size]::new(80, 30)
+    $okButton.Location = [System.Drawing.Point]::new($formWidth - 100, $formHeight - 80)
+    $okButton.BackColor = 'DarkSlateGray'
+    $okButton.ForeColor = 'White'
+    $okButton.FlatStyle = 'Flat'
+    $okButton.Add_Click({
+        $form.Tag = 'OK'
+        $form.Close()
+    })
+    $form.Controls.Add($okButton)
+
+    $cancelButton = New-Object System.Windows.Forms.Button
+    $cancelButton.Text = "Cancel"
+    $cancelButton.Size = [System.Drawing.Size]::new(80, 30)
+    $cancelButton.Location = [System.Drawing.Point]::new($formWidth - 190, $formHeight - 80)
+    $cancelButton.BackColor = 'DimGray'
+    $cancelButton.ForeColor = 'White'
+    $cancelButton.FlatStyle = 'Flat'
+    $cancelButton.Add_Click({
+        $form.Tag = 'Cancel'
+        $form.Close()
+    })
+    $form.Controls.Add($cancelButton)
+
+    # Legend - underneath buttons
+    $legend = New-Object System.Windows.Forms.Label
+    $legend.Text = "[*] Required. Sensitive variables are cleared after use in AppContext API connections."
+    $legend.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Italic)
+    $legend.ForeColor = "Silver"
+    $legend.Location = [System.Drawing.Point]::new($formWidth - 440, $yPos - 10)  # $yPos is bottom of last input field
+    $legend.Size = [System.Drawing.Size]::new(580, 20)
+    $form.Controls.Add($legend)
+
+    $form.ShowDialog()
+
+    if ($form.Tag -eq 'OK') {
+        $finalValues = @{}
+        foreach ($key in $fieldInputs.Keys) {
+            $finalValues[$key] = [pscustomobject]@{
+                Value     = $fieldInputs[$key].TextBox.Text
+                Sensitive = $fieldInputs[$key].CheckBox.Checked
+                Required  = $fieldInputs[$key].Required
+            }
+        }
+        return $finalValues
+    } else {
+        Write-Host "User cancelled input."
+        return $null
+    }
+}
